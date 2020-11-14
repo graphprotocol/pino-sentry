@@ -36,4 +36,4 @@ const logger = pino(opts, stream)
 
 ## License
 
-[MIT License][LICENSE]
+[MIT License](LICENSE)
