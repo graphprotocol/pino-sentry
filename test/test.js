@@ -2,18 +2,19 @@ const pinoLogger = require('pino');
 const { createWriteStream } = require('../dist/index');
 
 function main() {
-  const SENTRY_DSN = "https://123@123.ingest.sentry.io/123";
+  const SENTRY_DSN = "...";
 
   const options = {
-    level: "info"
+    level: "info",
   };
 
-  const stream = createWriteStream({ dsn: SENTRY_DSN });
+  const stream = createWriteStream({ dsn: SENTRY_DSN, tagKeys: ['allocation'], excludeAttributeKeys: ['foo'] });
 
   const logger = pinoLogger(options, stream);
 
-  logger.info('testtt info log');
-  logger.error('testtt log');
+  logger.error({ foo: 'bar', allocation: '0x123' }, 'FAILURE without own stacktrace (and some extra data)');
+  logger.error('FAILURE without own stacktrace (just a message)');
+  logger.error({ err: new Error('Some error') }, 'FAILURE with stacktrace');
 }
 
 main();

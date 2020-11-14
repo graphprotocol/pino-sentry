@@ -4,16 +4,16 @@ import pump from 'pumpify';
 import through from 'through2';
 import * as Sentry from '@sentry/node';
 
-type ValueOf<T> = T extends any[] ? T[number] : T[keyof T];
-
-class ExtendedError extends Error {
-  public constructor(info: any) {
-    super(info.message);
-
-    this.name = 'Error';
-    this.stack = info.stack || null;
+class ErrorWrapper extends Error {
+  constructor(caption: string, { message, stack }: { message: string; stack: any }) {
+    super(caption);
+    this.name = caption;
+    this.message = message;
+    this.stack = stack;
   }
 }
+
+type ValueOf<T> = T extends any[] ? T[number] : T[keyof T];
 
 const SEVERITIES_MAP = {
   10: Sentry.Severity.Debug, // pino: trace
@@ -22,8 +22,6 @@ const SEVERITIES_MAP = {
   40: Sentry.Severity.Warning, // pino: warn
   50: Sentry.Severity.Error, // pino: error
   60: Sentry.Severity.Fatal, // pino: fatal
-  // Support for useLevelLabels
-  // https://github.com/pinojs/pino/blob/master/docs/api.md#uselevellabels-boolean
   trace: Sentry.Severity.Debug,
   debug: Sentry.Severity.Debug,
   info: Sentry.Severity.Info,
@@ -46,21 +44,15 @@ const SeverityIota = {
 interface PinoSentryOptions extends Sentry.NodeOptions {
   /** Minimum level for a log to be reported to Sentry from pino-sentry */
   level?: keyof typeof SeverityIota;
-  messageAttributeKey?: string;
-  extraAttributeKeys?: string[];
-  stackAttributeKey?: string;
-  excludeAttributeKeys?: string[];
-  useErr?: boolean;
+  tagKeys?: string[];
+  excludeKeys?: string[];
 }
 
 export class PinoSentryTransport {
   // Default minimum log level to `debug`
   minimumLogLevel: ValueOf<typeof SeverityIota> = SeverityIota[Sentry.Severity.Debug];
-  messageAttributeKey = 'msg';
-  extraAttributeKeys = ['extra'];
-  stackAttributeKey = 'stack';
-  excludeAttributeKeys = [] as string[];
-  useErr = false;
+  tagKeys = [] as string[];
+  excludeKeys = ['err'] as string[];
 
   public constructor(options?: PinoSentryOptions) {
     Sentry.init(this.validateOptions(options || {}));
@@ -68,10 +60,6 @@ export class PinoSentryTransport {
 
   public getLogSeverity(level: keyof typeof SEVERITIES_MAP): Sentry.Severity {
     return SEVERITIES_MAP[level] || Sentry.Severity.Info;
-  }
-
-  public get sentry() {
-    return Sentry;
   }
 
   public transformer(): stream.Transform {
@@ -82,81 +70,47 @@ export class PinoSentryTransport {
 
   public prepareAndGo(chunk: any, cb: any): void {
     const severity = this.getLogSeverity(chunk.level);
-    // Check if we send this Severity to Sentry
+
+    // Check if we send this severity to Sentry
     if (this.shouldLog(severity) === false) {
       setImmediate(cb);
       return;
     }
 
-    const tags = chunk.tags || {};
+    const scope = {
+      level: severity,
+      tags: Object.keys(chunk)
+        .filter(key => this.tagKeys.includes(key))
+        .reduce((acc, key) => ({ ...acc, [key]: chunk[key] }), {}),
+      context: Object.keys(chunk)
+        .filter(key => !this.excludeKeys.includes(key))
+        .reduce((acc, key) => ({ ...acc, [key]: chunk[key] }), {}),
+    };
 
-    if (chunk.reqId) {
-      tags.uuid = chunk.reqId;
-    }
+    console.log(scope);
 
-    if (chunk.responseTime) {
-      tags.responseTime = chunk.responseTime;
-    }
-
-    if (chunk.hostname) {
-      tags.hostname = chunk.hostname;
-    }
-
-    const extra: any = {};
-    if (this.excludeAttributeKeys.length > 0) {
-      // Include exclude what is configured
-      Sentry.configureScope(scope => {
-        if (this.isObject(tags)) {
-          Object.keys(tags).forEach(tag => scope.setTag(tag, tags[tag]));
-        }
-        Object.keys(chunk)
-          .filter(key => !this.excludeAttributeKeys.includes(key))
-          // If we're using 'err' for capturing exceptions, exclude it from the extra data
-          .filter(key => (this.useErr ? key === 'err' : true))
-          .forEach(key => scope.setExtra(key, chunk[key]));
-      });
-    } else {
-      // Include include what is configured
-      this.extraAttributeKeys.forEach((key: string) => {
-        if (chunk[key] !== undefined) {
-          extra[key] = chunk[key];
-        }
-      });
-
-      Sentry.configureScope(scope => {
-        if (this.isObject(tags)) {
-          Object.keys(tags).forEach(tag => scope.setTag(tag, tags[tag]));
-        }
-        if (this.isObject(extra)) {
-          Object.keys(extra).forEach(ext => scope.setExtra(ext, extra[ext]));
-        }
-      });
-    }
-
-    const message = chunk[this.messageAttributeKey];
+    const message = chunk['msg'];
+    const err = chunk['err'];
 
     // Capturing Errors / Exceptions
     if (this.isSentryException(severity)) {
-      if (this.useErr && chunk['err']) {
+      if (err) {
+        // Capture error messages with an `err` key
         setImmediate(() => {
-          Sentry.captureException(chunk['err']);
+          Sentry.captureException(new ErrorWrapper(message, err), scope);
           cb();
         });
       } else {
-        const stack = chunk[this.stackAttributeKey] || '';
-
-        const error =
-          message instanceof Error ? message : new ExtendedError({ message, stack });
-
+        // Capture error messages without an `err` key
         setImmediate(() => {
-          Sentry.captureException(error);
+          Sentry.captureMessage(message, scope);
           cb();
         });
       }
     } else {
       // Capturing Messages
       setImmediate(() => {
-        Sentry.captureMessage(message, severity);
+        Sentry.captureMessage(message, scope);
         cb();
       });
     }
@@ -182,11 +136,8 @@ export class PinoSentryTransport {
       this.minimumLogLevel = SeverityIota[options.level];
     }
 
-    this.stackAttributeKey = options.stackAttributeKey ?? this.stackAttributeKey;
-    this.extraAttributeKeys = options.extraAttributeKeys ?? this.extraAttributeKeys;
-    this.messageAttributeKey = options.messageAttributeKey ?? this.messageAttributeKey;
-    this.excludeAttributeKeys = options.excludeAttributeKeys ?? this.excludeAttributeKeys;
-    this.useErr = options.useErr || false;
+    this.tagKeys = options.tagKeys ?? [...this.tagKeys];
+    this.excludeKeys = options.excludeKeys ?? [...this.excludeKeys, 'err'];
 
     return {
       dsn,
@@ -199,11 +150,6 @@ export class PinoSentryTransport {
       maxBreadcrumbs: 100,
       ...options,
     };
-  }
-
-  private isObject(obj: any): boolean {
-    const type = typeof obj;
-    return type === 'function' || (type === 'object' && !!obj);
   }
 
   private isSentryException(level: Sentry.Severity): boolean {
