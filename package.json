@@ -1,8 +1,8 @@
 {
-  "name": "@graphprotocol/pino-sentry",
+  "name": "@graphprotocol/pino-sentry-simple",
   "description": "@sentry/node transport for pino logger",
   "version": "0.6.1-alpha.0",
-  "author": "Andrew Avdeev <andrewww.avdeev@gmail.com>",
+  "author": "Jannis Pohlmann <jannis@thegraph.com>",
   "keywords": [
     "logger",
     "loggly",
@@ -15,9 +15,6 @@
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "bin": {
-    "pino-sentry": "dist/cli.js"
-  },
   "scripts": {
     "clean": "rm -rf dist",
     "build": "tsc -b tsconfig.build.json",
@@ -25,18 +22,17 @@
     "test": "node ./test/test.js",
     "prepublishOnly": "npm run lint && npm run build && npm run test"
   },
-  "repository": "https://github.com/aandrewww/pino-sentry.git",
+  "repository": "https://github.com/graphprotocol/pino-sentry-simple.git",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/aandrewww/pino-sentry/issues"
+    "url": "https://github.com/graphprotocol/pino-sentry-simple/issues"
   },
-  "homepage": "https://github.com/aandrewww/pino-sentry#readme",
+  "homepage": "https://github.com/graphprotocol/pino-sentry-simple#readme",
   "engines": {
     "node": ">=10"
   },
   "dependencies": {
     "@sentry/node": "^5.21.1",
-    "commander": "^2.20.0",
     "pumpify": "^2.0.1",
     "split2": "^3.1.1",
     "through2": "^3.0.1"
