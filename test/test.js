@@ -4,7 +4,7 @@ const pinoLogger = require('pino')
 const { createWriteStream } = require('../dist/index')
 
 function main() {
-  const SENTRY_DSN = "..."
+  const SENTRY_DSN = "https://123@123.ingest.sentry.io/123"
 
   const options = {
     level: "info",
