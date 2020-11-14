@@ -60,7 +60,7 @@ export class PinoSentryTransport {
   extraAttributeKeys = ['extra'];
   stackAttributeKey = 'stack';
   excludeAttributeKeys = [] as string[];
-  useErr: boolean = false;
+  useErr = false;
 
   public constructor(options?: PinoSentryOptions) {
     Sentry.init(this.validateOptions(options || {}));
