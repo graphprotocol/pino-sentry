@@ -93,8 +93,6 @@ export class PinoSentryTransport {
       },
     }
 
-    console.log(scope)
-
     const message = chunk['msg']
     const err = chunk['err']
 
