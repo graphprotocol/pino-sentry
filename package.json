@@ -1,7 +1,7 @@
 {
   "name": "@graphprotocol/pino-sentry-simple",
   "description": "@sentry/node transport for pino logger",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "author": "Jannis Pohlmann <jannis@thegraph.com>",
   "keywords": [
     "logger",
