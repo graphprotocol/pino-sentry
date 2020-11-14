@@ -1,5 +1,5 @@
 {
-  "name": "pino-sentry",
+  "name": "@graphprotocol/pino-sentry",
   "description": "@sentry/node transport for pino logger",
   "version": "0.6.0",
   "author": "Andrew Avdeev <andrewww.avdeev@gmail.com>",
@@ -50,6 +50,7 @@
     "@typescript-eslint/parser": "^2.34.0",
     "eslint": "^6.8.0",
     "pino": "^6.5.1",
+    "prettier": "^2.1.2",
     "typescript": "^3.9.7"
   }
 }
